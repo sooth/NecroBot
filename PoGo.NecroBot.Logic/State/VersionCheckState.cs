@@ -201,8 +201,8 @@ namespace PoGo.NecroBot.Logic.State
 
                 var gitVersion = new Version($"{match.Groups[1]}.{match.Groups[2]}.{match.Groups[3]}");
                 RemoteVersion = gitVersion;
-                if (gitVersion >= Assembly.GetExecutingAssembly().GetName().Version)
-                    return false;
+                //if (gitVersion >= Assembly.GetExecutingAssembly().GetName().Version)
+                //    return false;
             }
             catch (Exception)
             {

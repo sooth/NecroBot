@@ -392,11 +392,17 @@ namespace PoGo.NecroBot.Logic
         public int MaxPokeballsPerPokemon;
         [DefaultValue(1000)]
         public int MaxTravelDistanceInMeters;
-        [DefaultValue(120)]
+        [DefaultValue(100)]
         public int TotalAmountOfPokeballsToKeep;
-        [DefaultValue(80)]
+        [DefaultValue(100)]
+        public int TotalAmountOfGreatballsToKeep;
+        [DefaultValue(75)]
+        public int TotalAmountOfUltraballsToKeep;
+        [DefaultValue(100)]
+        public int TotalAmountOfMasterballsToKeep;
+        [DefaultValue(0)]
         public int TotalAmountOfPotionsToKeep;
-        [DefaultValue(60)]
+        [DefaultValue(0)]
         public int TotalAmountOfRevivesToKeep;
         [DefaultValue(50)]
         public int TotalAmountOfBerriesToKeep;
@@ -1299,6 +1305,9 @@ namespace PoGo.NecroBot.Logic
         public double SnipingScanOffset => _settings.SnipingScanOffset;
         public bool SnipePokemonNotInPokedex => _settings.SnipePokemonNotInPokedex;
         public int TotalAmountOfPokeballsToKeep => _settings.TotalAmountOfPokeballsToKeep;
+        public int TotalAmountOfGreatballsToKeep => _settings.TotalAmountOfGreatballsToKeep;
+        public int TotalAmountOfUltraballsToKeep => _settings.TotalAmountOfUltraballsToKeep;
+        public int TotalAmountOfMasterballsToKeep => _settings.TotalAmountOfMasterballsToKeep;
         public int TotalAmountOfPotionsToKeep => _settings.TotalAmountOfPotionsToKeep;
         public int TotalAmountOfRevivesToKeep => _settings.TotalAmountOfRevivesToKeep;
         public int TotalAmountOfBerriesToKeep => _settings.TotalAmountOfBerriesToKeep;

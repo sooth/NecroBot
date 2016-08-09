@@ -160,6 +160,9 @@ namespace PoGo.NecroBot.Logic
         double SnipingScanOffset { get; }
         bool SnipePokemonNotInPokedex { get; }
         int TotalAmountOfPokeballsToKeep { get; }
+        int TotalAmountOfGreatballsToKeep { get; }
+        int TotalAmountOfUltraballsToKeep { get; }
+        int TotalAmountOfMasterballsToKeep { get; }
         int TotalAmountOfPotionsToKeep { get; }
         int TotalAmountOfRevivesToKeep { get; }
         int TotalAmountOfBerriesToKeep { get; }
