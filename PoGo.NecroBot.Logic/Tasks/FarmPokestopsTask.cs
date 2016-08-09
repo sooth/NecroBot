@@ -148,6 +148,8 @@ namespace PoGo.NecroBot.Logic.Tasks
                             InventoryFull = fortSearch.Result == FortSearchResponse.Types.Result.InventoryFull
                         });
 
+                        //await RecycleItemsTask.Execute(session, cancellationToken);
+
                         break; //Continue with program as loot was succesfull.
                     }
                 } while (fortTry < retryNumber - zeroCheck);

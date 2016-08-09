@@ -6,6 +6,8 @@ using PoGo.NecroBot.Logic.Logging;
 using PoGo.NecroBot.Logic.State;
 using PoGo.NecroBot.Logic.Utils;
 using POGOProtos.Inventory.Item;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,70 +23,26 @@ namespace PoGo.NecroBot.Logic.Tasks
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var currentAmountOfPokeballs = await session.Inventory.GetItemAmountByType(ItemId.ItemPokeBall);
-            var currentAmountOfGreatballs = await session.Inventory.GetItemAmountByType(ItemId.ItemGreatBall);
-            var currentAmountOfUltraballs = await session.Inventory.GetItemAmountByType(ItemId.ItemUltraBall);
-            var currentAmountOfMasterballs = await session.Inventory.GetItemAmountByType(ItemId.ItemMasterBall);
-
-            if (session.LogicSettings.DetailedCountsBeforeRecycling)
-                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentPokeballInv,
-                    currentAmountOfPokeballs, currentAmountOfGreatballs, currentAmountOfUltraballs,
-                    currentAmountOfMasterballs));
-
-            var currentPotions = await session.Inventory.GetItemAmountByType(ItemId.ItemPotion);
-            var currentSuperPotions = await session.Inventory.GetItemAmountByType(ItemId.ItemSuperPotion);
-            var currentHyperPotions = await session.Inventory.GetItemAmountByType(ItemId.ItemHyperPotion);
-            var currentMaxPotions = await session.Inventory.GetItemAmountByType(ItemId.ItemMaxPotion);
-
-            var currentAmountOfPotions = currentPotions + currentSuperPotions + currentHyperPotions + currentMaxPotions;
-
-            if (session.LogicSettings.DetailedCountsBeforeRecycling)
-                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentPotionInv,
-                    currentPotions, currentSuperPotions, currentHyperPotions, currentMaxPotions));
-            
-            var currentRevives = await session.Inventory.GetItemAmountByType(ItemId.ItemRevive);
-            var currentMaxRevives = await session.Inventory.GetItemAmountByType(ItemId.ItemMaxRevive);
-
-            var currentAmountOfRevives = currentRevives + currentMaxRevives;
-
-            if (session.LogicSettings.DetailedCountsBeforeRecycling)
-                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentReviveInv,
-                    currentRevives, currentMaxRevives));
-
-            var currentAmountOfBerries = await session.Inventory.GetItemAmountByType(ItemId.ItemRazzBerry) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemBlukBerry) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemNanabBerry) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemWeparBerry) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemPinapBerry);
-            var currentAmountOfIncense = await session.Inventory.GetItemAmountByType(ItemId.ItemIncenseOrdinary) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemIncenseSpicy) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemIncenseCool) +
-                await session.Inventory.GetItemAmountByType(ItemId.ItemIncenseFloral);
-            var currentAmountOfLuckyEggs = await session.Inventory.GetItemAmountByType(ItemId.ItemLuckyEgg);
-            var currentAmountOfLures = await session.Inventory.GetItemAmountByType(ItemId.ItemTroyDisk);
-
-            if (session.LogicSettings.DetailedCountsBeforeRecycling)
-                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentMiscItemInv,
-                    currentAmountOfBerries, currentAmountOfIncense, currentAmountOfLuckyEggs, currentAmountOfLures));
+            var items = await session.Inventory.GetItems();
             
             var currentTotalItems = await session.Inventory.GetTotalItemCount();
             if ((session.Profile.PlayerData.MaxItemStorage * session.LogicSettings.RecycleInventoryAtUsagePercentage/100.0f) > currentTotalItems)
                 return;
 
             if (session.LogicSettings.TotalAmountOfPokeballsToKeep != 0)
-                await OptimizedRecycleBalls(session, cancellationToken);
+                await OptimizedRecycleBalls(session, cancellationToken, items);
 
             if (!session.LogicSettings.VerboseRecycling)
                 Logger.Write(session.Translation.GetTranslation(TranslationString.RecyclingQuietly), LogLevel.Recycling);
 
             if (session.LogicSettings.TotalAmountOfPotionsToKeep>=0)
-                await OptimizedRecyclePotions(session, cancellationToken);
+                await OptimizedRecyclePotions(session, cancellationToken, items);
 
             if (session.LogicSettings.TotalAmountOfRevivesToKeep>=0)
-                await OptimizedRecycleRevives(session, cancellationToken);
+                await OptimizedRecycleRevives(session, cancellationToken, items);
 
             if (session.LogicSettings.TotalAmountOfBerriesToKeep >= 0)
-                await OptimizedRecycleBerries(session, cancellationToken);
+                await OptimizedRecycleBerries(session, cancellationToken, items);
 
             currentTotalItems = await session.Inventory.GetTotalItemCount();
             if ((session.Profile.PlayerData.MaxItemStorage * session.LogicSettings.RecycleInventoryAtUsagePercentage/100.0f) > currentTotalItems)
@@ -93,9 +51,10 @@ namespace PoGo.NecroBot.Logic.Tasks
                 return;
             }
 
-            var items = await session.Inventory.GetItemsToRecycle(session);
+            //recycles other misc items
+            var ritems = await session.Inventory.GetItemsToRecycle(session);
 
-            foreach (var item in items)
+            foreach (var item in ritems)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -104,13 +63,18 @@ namespace PoGo.NecroBot.Logic.Tasks
                 if (session.LogicSettings.VerboseRecycling)
                     session.EventDispatcher.Send(new ItemRecycledEvent { Id = item.ItemId, Count = item.Count });
 
-                DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
+               // DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
             }
 
             await session.Inventory.RefreshCachedInventory();
         }
 
-        private static async Task RecycleItems(ISession session, CancellationToken cancellationToken, int itemCount, int Diff, ItemId item)
+        private static int GetItemCount(IEnumerable<ItemData> inventory, ItemId item)
+        {
+            return inventory.Where(s => s.ItemId == item).Select(i => i.Count).FirstOrDefault();
+        }
+
+        private static async Task<int> RecycleItems(ISession session, CancellationToken cancellationToken, int itemCount, int Diff, ItemId item)
         {
             int itemsToRecycle = 0;
             int itemsToKeep = itemCount - Diff;
@@ -124,25 +88,31 @@ namespace PoGo.NecroBot.Logic.Tasks
                 await session.Client.Inventory.RecycleItem(item, itemsToRecycle);
                 if (session.LogicSettings.VerboseRecycling)
                     session.EventDispatcher.Send(new ItemRecycledEvent { Id = item, Count = itemsToRecycle });
-                DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
+                //DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
             }
+            return Diff;
         }
 
-        private static async Task OptimizedRecycleBalls(ISession session, CancellationToken cancellationToken)
+        private static async Task OptimizedRecycleBalls(ISession session, CancellationToken cancellationToken, IEnumerable<ItemData> items)
         {
             int Diff = 0;
 
-            var pokeBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemPokeBall);
-            var greatBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemGreatBall);
-            var ultraBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemUltraBall);
-            var masterBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemMasterBall);
+            var pokeBallsCount = GetItemCount(items, ItemId.ItemPokeBall);
+            var greatBallsCount = GetItemCount(items, ItemId.ItemGreatBall);
+            var ultraBallsCount = GetItemCount(items, ItemId.ItemUltraBall);
+            var masterBallsCount = GetItemCount(items, ItemId.ItemMasterBall);
+
+            if(session.LogicSettings.DetailedCountsBeforeRecycling)
+                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentPokeballInv,
+                    pokeBallsCount, greatBallsCount, ultraBallsCount,
+                    masterBallsCount));
 
             if(pokeBallsCount > session.LogicSettings.TotalAmountOfPokeballsToKeep)
             {
                 Diff = pokeBallsCount - session.LogicSettings.TotalAmountOfPokeballsToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, pokeBallsCount, Diff, ItemId.ItemPokeBall);
+                    Diff = await RecycleItems(session, cancellationToken, pokeBallsCount, Diff, ItemId.ItemPokeBall);
                 }
             }
             if(greatBallsCount > session.LogicSettings.TotalAmountOfGreatballsToKeep)
@@ -150,7 +120,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                 Diff = greatBallsCount - session.LogicSettings.TotalAmountOfGreatballsToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, greatBallsCount, Diff, ItemId.ItemGreatBall);
+                    Diff = await RecycleItems(session, cancellationToken, greatBallsCount, Diff, ItemId.ItemGreatBall);
                 }
             }
             if(ultraBallsCount > session.LogicSettings.TotalAmountOfUltraballsToKeep)
@@ -158,7 +128,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                 Diff = ultraBallsCount - session.LogicSettings.TotalAmountOfUltraballsToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, ultraBallsCount, Diff, ItemId.ItemUltraBall);
+                    Diff = await RecycleItems(session, cancellationToken, ultraBallsCount, Diff, ItemId.ItemUltraBall);
                 }
             }
             if(masterBallsCount > session.LogicSettings.TotalAmountOfMasterballsToKeep)
@@ -166,103 +136,130 @@ namespace PoGo.NecroBot.Logic.Tasks
                 Diff = masterBallsCount - session.LogicSettings.TotalAmountOfMasterballsToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, ultraBallsCount, Diff, ItemId.ItemMasterBall);
+                    Diff = await RecycleItems(session, cancellationToken, ultraBallsCount, Diff, ItemId.ItemMasterBall);
                 }
             }
         }
 
-        private static async Task OptimizedRecyclePotions(ISession session, CancellationToken cancellationToken)
+        private static async Task OptimizedRecyclePotions(ISession session, CancellationToken cancellationToken, IEnumerable<ItemData> items)
         {
             int Diff = 0;
-            var potionCount = await session.Inventory.GetItemAmountByType(ItemId.ItemPotion);
-            var superPotionCount = await session.Inventory.GetItemAmountByType(ItemId.ItemSuperPotion);
-            var hyperPotionsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemHyperPotion);
-            var maxPotionCount = await session.Inventory.GetItemAmountByType(ItemId.ItemMaxPotion);
 
+            var potionCount = GetItemCount(items, ItemId.ItemPotion);
+            var superPotionCount = GetItemCount(items, ItemId.ItemSuperPotion);
+            var hyperPotionsCount = GetItemCount(items, ItemId.ItemHyperPotion);
+            var maxPotionCount = GetItemCount(items, ItemId.ItemMaxPotion);
+
+            var currentAmountOfPotions = potionCount + superPotionCount + hyperPotionsCount + maxPotionCount;
+
+            if(session.LogicSettings.DetailedCountsBeforeRecycling)
+                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentPotionInv,
+                    potionCount, superPotionCount, hyperPotionsCount, maxPotionCount));
+            
             int totalPotionsCount = potionCount + superPotionCount + hyperPotionsCount + maxPotionCount;
             if(totalPotionsCount > session.LogicSettings.TotalAmountOfPotionsToKeep)
             {
                 Diff = totalPotionsCount - session.LogicSettings.TotalAmountOfPotionsToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, potionCount, Diff, ItemId.ItemPotion);
+                    Diff = await RecycleItems(session, cancellationToken, potionCount, Diff, ItemId.ItemPotion);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, superPotionCount, Diff, ItemId.ItemSuperPotion);
+                    Diff = await RecycleItems(session, cancellationToken, superPotionCount, Diff, ItemId.ItemSuperPotion);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, hyperPotionsCount, Diff, ItemId.ItemHyperPotion);
+                    Diff = await RecycleItems(session, cancellationToken, hyperPotionsCount, Diff, ItemId.ItemHyperPotion);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, maxPotionCount, Diff, ItemId.ItemMaxPotion);
+                    Diff = await RecycleItems(session, cancellationToken, maxPotionCount, Diff, ItemId.ItemMaxPotion);
                 }
             }
         }
 
-        private static async Task OptimizedRecycleRevives(ISession session, CancellationToken cancellationToken)
+        private static async Task OptimizedRecycleRevives(ISession session, CancellationToken cancellationToken, IEnumerable<ItemData> items)
         {
             int Diff = 0;
-            var reviveCount = await session.Inventory.GetItemAmountByType(ItemId.ItemRevive);
-            var maxReviveCount = await session.Inventory.GetItemAmountByType(ItemId.ItemMaxRevive);
 
-            int totalRevivesCount = reviveCount + maxReviveCount;
+            var reviveCount = GetItemCount(items, ItemId.ItemRevive);
+            var maxReviveCount = GetItemCount(items, ItemId.ItemMaxPotion);
+
+            var totalRevivesCount = reviveCount + maxReviveCount;
+
+            if(session.LogicSettings.DetailedCountsBeforeRecycling)
+                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentReviveInv,
+                    reviveCount, maxReviveCount));
+
             if(totalRevivesCount > session.LogicSettings.TotalAmountOfRevivesToKeep)
             {
                 Diff = totalRevivesCount - session.LogicSettings.TotalAmountOfRevivesToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, reviveCount, Diff, ItemId.ItemRevive);
+                    Diff = await RecycleItems(session, cancellationToken, reviveCount, Diff, ItemId.ItemRevive);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, maxReviveCount, Diff, ItemId.ItemMaxRevive);
+                    Diff = await RecycleItems(session, cancellationToken, maxReviveCount, Diff, ItemId.ItemMaxRevive);
                 }
             }
         }
 
-        private static async Task OptimizedRecycleBerries(ISession session, CancellationToken cancellationToken)
+        private static async Task OptimizedRecycleBerries(ISession session, CancellationToken cancellationToken, IEnumerable<ItemData> items)
         {
             int Diff = 0;
-            var razz = await session.Inventory.GetItemAmountByType(ItemId.ItemRazzBerry);
-            var bluk = await session.Inventory.GetItemAmountByType(ItemId.ItemBlukBerry);
-            var nanab = await session.Inventory.GetItemAmountByType(ItemId.ItemNanabBerry);
-            var pinap = await session.Inventory.GetItemAmountByType(ItemId.ItemPinapBerry);
-            var wepar = await session.Inventory.GetItemAmountByType(ItemId.ItemWeparBerry);
+
+            var razz = GetItemCount(items, ItemId.ItemRazzBerry);
+            var bluk = GetItemCount(items, ItemId.ItemBlukBerry);
+            var nanab = GetItemCount(items, ItemId.ItemNanabBerry);
+            var pinap = GetItemCount(items, ItemId.ItemWeparBerry);
+            var wepar = GetItemCount(items, ItemId.ItemPinapBerry);
 
             int totalBerryCount = razz + bluk + nanab + pinap + wepar;
+
+            var currentAmountOfIncense = GetItemCount(items, ItemId.ItemIncenseOrdinary) +
+                GetItemCount(items, ItemId.ItemIncenseSpicy) +
+                GetItemCount(items, ItemId.ItemIncenseCool) +
+                GetItemCount(items, ItemId.ItemIncenseFloral);
+            var currentAmountOfLuckyEggs = GetItemCount(items, ItemId.ItemLuckyEgg);
+            var currentAmountOfLures = GetItemCount(items, ItemId.ItemTroyDisk);
+
+            if(session.LogicSettings.DetailedCountsBeforeRecycling)
+                Logger.Write(session.Translation.GetTranslation(TranslationString.CurrentMiscItemInv,
+                    totalBerryCount, currentAmountOfIncense, currentAmountOfLuckyEggs, currentAmountOfLures));
+            
+            
             if(totalBerryCount > session.LogicSettings.TotalAmountOfBerriesToKeep)
             {
                 Diff = totalBerryCount - session.LogicSettings.TotalAmountOfBerriesToKeep;
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, razz, Diff, ItemId.ItemRazzBerry);
+                    Diff = await RecycleItems(session, cancellationToken, razz, Diff, ItemId.ItemRazzBerry);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, bluk, Diff, ItemId.ItemBlukBerry);
+                    Diff = await RecycleItems(session, cancellationToken, bluk, Diff, ItemId.ItemBlukBerry);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, nanab, Diff, ItemId.ItemNanabBerry);
+                    Diff = await RecycleItems(session, cancellationToken, nanab, Diff, ItemId.ItemNanabBerry);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, pinap, Diff, ItemId.ItemPinapBerry);
+                    Diff = await RecycleItems(session, cancellationToken, pinap, Diff, ItemId.ItemPinapBerry);
                 }
 
                 if(Diff > 0)
                 {
-                    await RecycleItems(session, cancellationToken, wepar, Diff, ItemId.ItemWeparBerry);
+                    Diff = await RecycleItems(session, cancellationToken, wepar, Diff, ItemId.ItemWeparBerry);
                 }
             }
         }

@@ -30,10 +30,13 @@ namespace PoGo.NecroBot.Logic.Tasks
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var pokeBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemPokeBall);
-                var greatBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemGreatBall);
-                var ultraBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemUltraBall);
-                var masterBallsCount = await session.Inventory.GetItemAmountByType(ItemId.ItemMasterBall);
+                var items = await session.Inventory.GetItems();
+                var balls = items.Where(s => s.ItemId == ItemId.ItemPokeBall || s.ItemId == ItemId.ItemGreatBall || s.ItemId == ItemId.ItemUltraBall || s.ItemId == ItemId.ItemMasterBall);
+
+                var pokeBallsCount = balls.Where(s => s.ItemId == ItemId.ItemPokeBall).Select(i => i.Count).FirstOrDefault();
+                var greatBallsCount = balls.Where(s => s.ItemId == ItemId.ItemGreatBall).Select(i => i.Count).FirstOrDefault();
+                var ultraBallsCount = balls.Where(s => s.ItemId == ItemId.ItemUltraBall).Select(i => i.Count).FirstOrDefault();
+                var masterBallsCount = balls.Where(s => s.ItemId == ItemId.ItemMasterBall).Select(i => i.Count).FirstOrDefault();
 
                 if (pokeBallsCount + greatBallsCount + ultraBallsCount + masterBallsCount == 0)
                 {
@@ -82,6 +85,16 @@ namespace PoGo.NecroBot.Logic.Tasks
                         Message =
                             session.Translation.GetTranslation(TranslationString.EncounterProblem, encounter.Status)
                     });
+                }
+
+                await RecycleItemsTask.Execute(session, cancellationToken);
+
+                if(session.LogicSettings.EvolveAllPokemonWithEnoughCandy ||
+                    session.LogicSettings.EvolveAllPokemonAboveIv ||
+                    session.LogicSettings.UseLuckyEggsWhileEvolving ||
+                    session.LogicSettings.KeepPokemonsThatCanEvolve)
+                {
+                    await EvolvePokemonTask.Execute(session, cancellationToken);
                 }
 
                 // If pokemon is not last pokemon in list, create delay between catches, else keep moving.

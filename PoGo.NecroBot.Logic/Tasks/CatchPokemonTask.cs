@@ -36,8 +36,10 @@ namespace PoGo.NecroBot.Logic.Tasks
             float probability = encounter.CaptureProbability?.CaptureProbability_[0];
 
             // Check for pokeballs before proceeding
-            var pokeball = await GetBestBall(session, encounter, probability);
-            if (pokeball == ItemId.ItemUnknown) return;
+            var items = await session.Inventory.GetItems();
+            var poke = items.Where(s => s.ItemId == ItemId.ItemPokeBall || s.ItemId == ItemId.ItemGreatBall || s.ItemId == ItemId.ItemUltraBall || s.ItemId == ItemId.ItemMasterBall).Sum(d => d.Count);
+                        
+            if (poke == 0) return;
 
             //Calculate CP and IV
             var pokemonCp = (encounter is EncounterResponse
@@ -59,6 +61,7 @@ namespace PoGo.NecroBot.Logic.Tasks
 
             CatchPokemonResponse caughtPokemonResponse;
             var attemptCounter = 1;
+            var pokeball = ItemId.ItemUnknown;
             do
             {
                 if ((session.LogicSettings.MaxPokeballsPerPokemon > 0 &&
