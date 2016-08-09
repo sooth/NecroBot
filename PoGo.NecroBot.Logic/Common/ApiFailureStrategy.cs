@@ -112,7 +112,8 @@ namespace PoGo.NecroBot.Logic.Common
             }
             catch (Exception ex)
             {
-                throw ex.InnerException;
+                if(ex.InnerException != null)
+                    throw ex.InnerException;
             }
         }
         public void HandleApiSuccess(RequestEnvelope request, ResponseEnvelope response)

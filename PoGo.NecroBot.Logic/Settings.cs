@@ -396,7 +396,7 @@ namespace PoGo.NecroBot.Logic
         public int TotalAmountOfPokeballsToKeep;
         [DefaultValue(100)]
         public int TotalAmountOfGreatballsToKeep;
-        [DefaultValue(75)]
+        [DefaultValue(60)]
         public int TotalAmountOfUltraballsToKeep;
         [DefaultValue(100)]
         public int TotalAmountOfMasterballsToKeep;

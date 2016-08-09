@@ -86,7 +86,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                         // Catch normal map Pokemon
                         await CatchNearbyPokemonsTask.Execute(session, cancellationToken);
                         //Catch Incense Pokemon
-                        //await CatchIncensePokemonsTask.Execute(session, cancellationToken);
+                        await CatchIncensePokemonsTask.Execute(session, cancellationToken);
                         return true;
                     }, cancellationToken, session.LogicSettings.DisableHumanWalking);
 
