@@ -78,13 +78,13 @@ namespace PoGo.NecroBot.Logic.Tasks
         private static async Task<int> RecycleItems(ISession session, CancellationToken cancellationToken, int itemCount, int Diff, ItemId item)
         {
             int itemsToRecycle = 0;
-            int itemsToKeep = itemCount - _diff;
+            int itemsToKeep = itemCount - Diff;
             if (itemsToKeep < 0)
                 itemsToKeep = 0;
             itemsToRecycle = itemCount - itemsToKeep;
             if (itemsToRecycle != 0)
             {
-                _diff -= itemsToRecycle;
+                Diff -= itemsToRecycle;
                 cancellationToken.ThrowIfCancellationRequested();
                 await session.Client.Inventory.RecycleItem(item, itemsToRecycle);
                 if (session.LogicSettings.VerboseRecycling)

@@ -105,6 +105,9 @@ namespace PoGo.NecroBot.Logic.Tasks
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    //this way if our bag is going to be full we can still get the possible items from the stop
+                    await RecycleItemsTask.Execute(session, cancellationToken);
+
                     fortSearch =
                         await session.Client.Fort.SearchFort(pokeStop.Id, pokeStop.Latitude, pokeStop.Longitude);
                     if (fortSearch.ExperienceAwarded > 0 && timesZeroXPawarded > 0) timesZeroXPawarded = 0;
