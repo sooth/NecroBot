@@ -87,15 +87,15 @@ namespace PoGo.NecroBot.Logic.Tasks
                     });
                 }
 
-                await RecycleItemsTask.Execute(session, cancellationToken);
+                //await RecycleItemsTask.Execute(session, cancellationToken);
 
-                if(session.LogicSettings.EvolveAllPokemonWithEnoughCandy ||
-                    session.LogicSettings.EvolveAllPokemonAboveIv ||
-                    session.LogicSettings.UseLuckyEggsWhileEvolving ||
-                    session.LogicSettings.KeepPokemonsThatCanEvolve)
-                {
-                    await EvolvePokemonTask.Execute(session, cancellationToken);
-                }
+                //if(session.LogicSettings.EvolveAllPokemonWithEnoughCandy ||
+                //    session.LogicSettings.EvolveAllPokemonAboveIv ||
+                //    session.LogicSettings.UseLuckyEggsWhileEvolving ||
+                //    session.LogicSettings.KeepPokemonsThatCanEvolve)
+                //{
+                //    await EvolvePokemonTask.Execute(session, cancellationToken);
+                //}
 
                 // If pokemon is not last pokemon in list, create delay between catches, else keep moving.
                 if (!Equals(pokemons.ElementAtOrDefault(pokemons.Count() - 1), pokemon))
