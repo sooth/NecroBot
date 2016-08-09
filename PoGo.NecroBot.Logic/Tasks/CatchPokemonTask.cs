@@ -94,7 +94,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                 {
                     
                     AmountOfBerries++;
-                    if (AmountOfBerries < session.LogicSettings.MaxBerriesToUsePerPokemon)
+                    if (AmountOfBerries <= session.LogicSettings.MaxBerriesToUsePerPokemon)
                     {
                         await
                        UseBerry(session,
@@ -257,7 +257,7 @@ namespace PoGo.NecroBot.Logic.Tasks
 
                 attemptCounter++;
 
-                DelayingUtils.Delay(session.LogicSettings.DelayBetweenPokemonCatch, 2000);
+                DelayingUtils.Delay(session.LogicSettings.DelayBetweenPokemonCatch, 0);
             } while (caughtPokemonResponse.Status == CatchPokemonResponse.Types.CatchStatus.CatchMissed ||
                      caughtPokemonResponse.Status == CatchPokemonResponse.Types.CatchStatus.CatchEscape);
         }

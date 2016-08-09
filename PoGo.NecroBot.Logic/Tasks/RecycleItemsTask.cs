@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System;
 
 #endregion
 
@@ -17,7 +18,8 @@ namespace PoGo.NecroBot.Logic.Tasks
 {
     public class RecycleItemsTask
     {
-        //private static int Diff;
+        private static int _diff;
+        private static Random rnd = new Random();
 
         public static async Task Execute(ISession session, CancellationToken cancellationToken)
         {
@@ -44,13 +46,12 @@ namespace PoGo.NecroBot.Logic.Tasks
             if (session.LogicSettings.TotalAmountOfBerriesToKeep >= 0)
                 await OptimizedRecycleBerries(session, cancellationToken, items);
 
+            await session.Inventory.RefreshCachedInventory();
             currentTotalItems = await session.Inventory.GetTotalItemCount();
-            if ((session.Profile.PlayerData.MaxItemStorage * session.LogicSettings.RecycleInventoryAtUsagePercentage/100.0f) > currentTotalItems)
+            if((session.Profile.PlayerData.MaxItemStorage * session.LogicSettings.RecycleInventoryAtUsagePercentage / 100.0f) > currentTotalItems)
             {
-                await session.Inventory.RefreshCachedInventory();
                 return;
             }
-
             //recycles other misc items
             var ritems = await session.Inventory.GetItemsToRecycle(session);
 
@@ -62,8 +63,8 @@ namespace PoGo.NecroBot.Logic.Tasks
 
                 if (session.LogicSettings.VerboseRecycling)
                     session.EventDispatcher.Send(new ItemRecycledEvent { Id = item.ItemId, Count = item.Count });
-
-               // DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
+                if (session.LogicSettings.DelayBetweenRecycleActions)
+                    DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
             }
 
             await session.Inventory.RefreshCachedInventory();
@@ -77,18 +78,19 @@ namespace PoGo.NecroBot.Logic.Tasks
         private static async Task<int> RecycleItems(ISession session, CancellationToken cancellationToken, int itemCount, int Diff, ItemId item)
         {
             int itemsToRecycle = 0;
-            int itemsToKeep = itemCount - Diff;
+            int itemsToKeep = itemCount - _diff;
             if (itemsToKeep < 0)
                 itemsToKeep = 0;
             itemsToRecycle = itemCount - itemsToKeep;
             if (itemsToRecycle != 0)
             {
-                Diff -= itemsToRecycle;
+                _diff -= itemsToRecycle;
                 cancellationToken.ThrowIfCancellationRequested();
                 await session.Client.Inventory.RecycleItem(item, itemsToRecycle);
                 if (session.LogicSettings.VerboseRecycling)
                     session.EventDispatcher.Send(new ItemRecycledEvent { Id = item, Count = itemsToRecycle });
-                //DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
+                if (session.LogicSettings.DelayBetweenRecycleActions)
+                    DelayingUtils.Delay(session.LogicSettings.DelayBetweenPlayerActions, 500);
             }
             return Diff;
         }
